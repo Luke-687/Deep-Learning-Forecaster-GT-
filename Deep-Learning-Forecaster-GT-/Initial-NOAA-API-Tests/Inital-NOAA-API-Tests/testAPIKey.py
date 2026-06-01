@@ -163,16 +163,19 @@ def main():
     print(f"\nFound {len(stations)} station(s). Fetching temperature data.\n")
 
     # 2. Fetch + print data for each station
+    allStationData = []
+
     for i, station in enumerate(stations, 1):
         print(f"[{i}/{len(stations)}] {station['name']} ({station['id']})")
         try:
             records = get_temperature_data(args.token, station["id"], args.start, args.end)
             stationDataFrame = createTemperatureDataFrame(station, records)
-            temperatureDataFrame = pd.concat([temperatureDataFrame, stationDataFrame])
+            if(stationDataFrame is not none):
+                allStationData.append(stationDataFrame)
         except requests.HTTPError as e:
             print(f"HTTP error for {station['id']}: {e}")
         sleep(0.25)
-
+    temperatureDataFrame = pd.concat(allStationData, ignore_index=True)
     print(f"\n\nDone. Processed {len(stations)} station(s). CSV created.")
 
     temperatureDataFrame.to_csv('TestingAPITemperature.csv', index=False)

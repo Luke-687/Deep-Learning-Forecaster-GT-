@@ -95,43 +95,6 @@ def get_temperature_data(token: str, station_id: str, start: str, end: str) -> l
 
     return records
 
-
-def createTemperatureDataFrame(station: dict, records: list[dict]):
-    print(f"\n{'='*60}")
-    print(f"  Station : {station['name']}")
-    print(f"  ID      : {station['id']}")
-    print(f"  Coords  : {station.get('latitude', 'N/A')}, {station.get('longitude', 'N/A')}")
-    print(f"  Elev    : {station.get('elevation', 'N/A')} {station.get('elevationUnit', '')}")
-    print(f"{'='*60}")
-
-    if not records:
-        print("  No temperature data found for this period.")
-        return
-
-    # Group records by date
-    by_date: dict[str, dict] = {}
-    for rec in records:
-        date_str = rec["date"][:10]  # YYYY-MM-DD
-        if date_str not in by_date:
-            by_date[date_str] = {}
-        by_date[date_str][rec["datatype"]] = rec["value"]
-
-    print(f"  {'Date':<12} {'TMAX (°F)':>10} {'TMIN (°F)':>10} {'TAVG (°F)':>10}")
-    print(f"  {'-'*12} {'-'*10} {'-'*10} {'-'*10}")
-
-    for date_str in sorted(by_date.keys()):
-        day = by_date[date_str]
-        tmax = f"{day['TMAX']:.1f}" if "TMAX" in day else "  N/A"
-        tmin = f"{day['TMIN']:.1f}" if "TMIN" in day else "  N/A"
-        tavg = f"{day['TAVG']:.1f}" if "TAVG" in day else "  N/A"
-        print(f"  {date_str:<12} {tmax:>10} {tmin:>10} {tavg:>10}")
-
-    # Quick stats
-    tmax_vals = [by_date[d]["TMAX"] for d in by_date if "TMAX" in by_date[d]]
-    tmin_vals = [by_date[d]["TMIN"] for d in by_date if "TMIN" in by_date[d]]
-    if tmax_vals:
-        print(f"\n  Period High: {max(tmax_vals):.1f}°F   Period Low: {min(tmin_vals):.1f}°F")
-
 def createTemperatureDataFrame(station: dict, records: list[dict]):
     stationTemperatureData = pd.DataFrame(columns=["Station", "Elevation","Date","TMin", "TMax", "TAvg"])
     #Define constants for all rows appended for the given station
@@ -210,7 +173,7 @@ def main():
             print(f"HTTP error for {station['id']}: {e}")
         sleep(0.25)
 
-    print(f"\n\nDone. Processed {len(stations)} station(s).")
+    print(f"\n\nDone. Processed {len(stations)} station(s). CSV created.")
 
     temperatureDataFrame.to_csv('TestingAPITemperature.csv', index=False)
 

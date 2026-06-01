@@ -121,9 +121,9 @@ def createTemperatureDataFrame(station: dict, records: list[dict]):
             "Station": stationName,
             "Elevation": stationElevation,
             "Date": date_str,
-            "TMin": day['TMIN'],
-            "TMax":day['TMAX'],
-            'TAvg':day['TAVG']
+            "TMin": day.get('TMIN'),
+            "TMax":day.get('TMAX'),
+            'TAvg':day.get('TAVG')
         })
 
     stationTemperatureData = pd.DataFrame(rowsForStation)
@@ -170,12 +170,13 @@ def main():
         try:
             records = get_temperature_data(args.token, station["id"], args.start, args.end)
             stationDataFrame = createTemperatureDataFrame(station, records)
-            if(stationDataFrame is not none):
+            if(stationDataFrame is not None):
                 allStationData.append(stationDataFrame)
         except requests.HTTPError as e:
             print(f"HTTP error for {station['id']}: {e}")
         sleep(0.25)
     temperatureDataFrame = pd.concat(allStationData, ignore_index=True)
+   
     print(f"\n\nDone. Processed {len(stations)} station(s). CSV created.")
 
     temperatureDataFrame.to_csv('TestingAPITemperature.csv', index=False)

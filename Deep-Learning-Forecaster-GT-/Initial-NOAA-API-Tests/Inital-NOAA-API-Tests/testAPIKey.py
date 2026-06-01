@@ -2,6 +2,7 @@ import requests
 import argparse
 from datetime import date, timedelta
 from time import sleep
+import pandas as pd
 
 
 # Constants of location and data set access
@@ -15,6 +16,8 @@ TEMP_DATATYPES = {
     "TMIN": "Min Temperature (°F × 10)",
     "TAVG": "Average Temperature (°F × 10)",
 }
+
+temperatureDataFrame = pd.DataFrame() #Define in the format: station-elevation-year-month-day-tempMin-tempMax-tempAvg
 
 
 #Convert temperature data from tenths of celsius to fahrenheit
@@ -93,7 +96,7 @@ def get_temperature_data(token: str, station_id: str, start: str, end: str) -> l
     return records
 
 
-def print_station_summary(station: dict, records: list[dict]):
+def createTemperatureDataFrame(station: dict, records: list[dict]):
     print(f"\n{'='*60}")
     print(f"  Station : {station['name']}")
     print(f"  ID      : {station['id']}")
@@ -129,8 +132,45 @@ def print_station_summary(station: dict, records: list[dict]):
     if tmax_vals:
         print(f"\n  Period High: {max(tmax_vals):.1f}°F   Period Low: {min(tmin_vals):.1f}°F")
 
+def createTemperatureDataFrame(station: dict, records: list[dict]):
+    stationTemperatureData = pd.DataFrame(columns=["Station", "Elevation","Date","TMin", "TMax", "TAvg"])
+    #Define constants for all rows appended for the given station
+    stationName = station['name']
+    stationElevation = station.get('elevation', 'n/A')
+
+    #Check that there is temperature data to record
+    if not records:
+        print("No temperature data found for this period.")
+        return
+
+    # Group records by date, then append each dated entry into the data frame for the station
+    by_date: dict[str, dict] = {}
+    for rec in records:
+        date_str = rec["date"][:10]  # YYYY-MM-DD
+        if date_str not in by_date:
+            by_date[date_str] = {}
+        by_date[date_str][rec["datatype"]] = rec["value"]
+
+    rowsForStation = []
+    for date_str in sorted(by_date.keys()):
+        day=by_date[date_str]
+        rowsForStation.append({
+            "Station": stationName,
+            "Elevation": stationElevation,
+            "Date": date_str,
+            "TMin": day['TMIN'],
+            "TMax":day['TMAX'],
+            'TAvg':day['TAVG']
+        })
+
+    stationTemperatureData = pd.DataFrame(rowsForStation)
+    return stationTemperatureData
+
 
 def main():
+    #Define larger data frame which all station data will be collected in
+    temperatureDataFrame = pd.DataFrame(columns=["Station", "Elevation","Date","TMin", "TMax", "TAvg"])
+
     parser = argparse.ArgumentParser(
         description="Fetch NOAA temperature data for all Morris County, NJ weather stations."
     )
@@ -164,12 +204,15 @@ def main():
         print(f"[{i}/{len(stations)}] {station['name']} ({station['id']})")
         try:
             records = get_temperature_data(args.token, station["id"], args.start, args.end)
-            print_station_summary(station, records)
+            stationDataFrame = createTemperatureDataFrame(station, records)
+            temperatureDataFrame = pd.concat([temperatureDataFrame, stationDataFrame])
         except requests.HTTPError as e:
-            print(f"  ⚠ HTTP error for {station['id']}: {e}")
-        sleep(0.2)
+            print(f"HTTP error for {station['id']}: {e}")
+        sleep(0.25)
 
     print(f"\n\nDone. Processed {len(stations)} station(s).")
+
+    temperatureDataFrame.to_csv('TestingAPITemperature.csv', index=False)
 
 
 if __name__ == "__main__":

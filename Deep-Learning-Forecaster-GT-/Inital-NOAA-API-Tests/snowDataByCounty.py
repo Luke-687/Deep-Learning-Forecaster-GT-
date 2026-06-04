@@ -14,16 +14,12 @@ DATASET_ID = "GHCND"        # Global Historical Climatology Network — Daily
 DATATYPES = {
     "TMAX": "Max Temperature (°F × 10)",
     "TMIN": "Min Temperature (°F × 10)",
+    "SNOW": "Snowfall measured in inches",
+    "SNWD": "Snow depth on ground in inches",
+    "ACMC": "Cloudiness midnight to midnight measures on ceilometer"
 }
 
-snowDataFrame = pd.DataFrame() #Define in the format: station-elevation-year-month-day-tempMin-tempMax-tempAvg
-
-#Convert temperature data from tenths of celsius to fahrenheit
-def f10_to_f(value):
-    celsius = value / 10.0
-    return round((celsius * 9 / 5) + 32, 1)
-
-def get_stations(token: str, counties: list[str]) -> list[dict]:
+def getStations(token: str, counties: list[str]) -> list[dict]:
     headers = {"token": token}
     stations = []
     for county in counties:
@@ -55,7 +51,7 @@ def get_stations(token: str, counties: list[str]) -> list[dict]:
 
     return stations
 
-def get_snow_data(token: str, station_id: str, start: str, end: str) -> list[dict]:
+def getStationSnowData(token: str, station_id: str, start: str, end: str) -> list[dict]:
     headers = {"token": token}
     records = []
     offset = 1
@@ -69,7 +65,7 @@ def get_snow_data(token: str, station_id: str, start: str, end: str) -> list[dic
             "enddate":    end,
             "limit":      1000,
             "offset":     offset,
-            "units":      "standard",   # returns °F directly (no ×10 conversion needed)
+            "units":      "standard"
         }
         resp = requests.get(f"{BASE_URL}/data", headers=headers, params=params)
         resp.raise_for_status()
@@ -90,7 +86,6 @@ def get_snow_data(token: str, station_id: str, start: str, end: str) -> list[dic
     return records
 
 def createDataFrame(station: dict, records: list[dict]):
-    stationSnowData = pd.DataFrame(columns=["Station", "Elevation","Date","TMin", "TMax"]) #Fic the information for the snow tracking variables
     #Define constants for all rows appended for the given station
     stationName = station['name']
     stationElevation = station.get('elevation', 'n/A')
@@ -108,18 +103,21 @@ def createDataFrame(station: dict, records: list[dict]):
             by_date[date_str] = {}
         by_date[date_str][rec["datatype"]] = rec["value"]
 
-    rowsForStation = []
+    allStationData = []
     for date_str in sorted(by_date.keys()):
         day=by_date[date_str]
-        rowsForStation.append({
+        allStationData.append({
             "Station": stationName,
             "Elevation": stationElevation,
             "Date": date_str,
             "TMin": day.get('TMIN'),
-            "TMax":day.get('TMAX')
-        }) #Fix all of this information for the snow tracking variables
+            "TMax":day.get('TMAX'),
+            "Snow":day.get("SNOW"),
+            "Snow Depth":day.get("SNWD"),
+            "Cloudiness Percent":day.get("ACMC")
+        })
 
-    stationSnowData = pd.DataFrame(rowsForStation)
+    stationSnowData = pd.DataFrame(allStationData)
     return stationSnowData
 
 #Main function will all parser variables for input of token and county codes
@@ -141,29 +139,29 @@ def main():
         help="End date YYYY-MM-DD (default: yesterday)"
     )
     parser.add_argument(
-    "--counties", nargs="+", default=["FIPS:41005"],
+    "--counties", nargs="+", default=["FIPS:41005"], #Default set to Morris County, NJ
     help="One or more FIPS county codes"
     )
     args = parser.parse_args()
 
 
-    print(f"\nNOAA — Temperature Data")
+    print(f"\nNOAA — Snow Data")
     print(f"Date range : {args.start}  →  {args.end}")
 
-    # 1. Get all stations
-    stations = get_stations(args.token, args.counties)
+    #Access and save all stations within inputted county codes
+    stations = getStations(args.token, args.counties)
     if not stations:
         print("No stations found. Check your API token or date range.")
         return
-    print(f"\nFound {len(stations)} station(s). Fetching temperature data.\n")
+    print(f"\nFound {len(stations)} station(s). Fetching snow data.\n")
 
-    # 2. Fetch + print data for each station
+    #Check for snow data in all identified counties and define the final snow data frame
     allStationData = []
 
     for i, station in enumerate(stations, 1):
         print(f"[{i}/{len(stations)}] {station['name']} ({station['id']})")
         try:
-            records = get_snow_data(args.token, station["id"], args.start, args.end)
+            records = getStationSnowData(args.token, station["id"], args.start, args.end)
             stationDataFrame = createDataFrame(station, records)
             if(stationDataFrame is not None):
                 allStationData.append(stationDataFrame)

@@ -120,7 +120,7 @@ def createDataFrame(station: dict, records: list[dict]):
     stationSnowData = pd.DataFrame(allStationData)
     return stationSnowData
 
-#Main function will all parser variables for input of token and county codes
+#Main function with all parser variables for input of token and county codes
 def main():
 
     parser = argparse.ArgumentParser(
@@ -139,7 +139,7 @@ def main():
         help="End date YYYY-MM-DD (default: yesterday)"
     )
     parser.add_argument(
-    "--counties", nargs="+", default=["FIPS:41005"], #Default set to Morris County, NJ
+    "--counties", nargs="+", default=["FIPS:41005"], #Default set to Clackamas, OR
     help="One or more FIPS county codes"
     )
     args = parser.parse_args()
@@ -174,8 +174,9 @@ def main():
         snowDataFrame = pd.concat(allStationData, ignore_index=True)
    
     print(f"\n\nDone. Processed {len(stations)} station(s). CSV created.")
-
-    snowDataFrame.to_csv(f'snowData({args.counties}).csv', index=False)
+    
+    countiesString = "-".join(args.counties).replace("FIPS:","")
+    snowDataFrame.to_csv(f'snowData({countiesString})({args.start}-{args.end}).csv', index=False)
 
 if __name__ == "__main__":
     main()

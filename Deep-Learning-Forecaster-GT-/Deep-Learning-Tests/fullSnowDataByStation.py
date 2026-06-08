@@ -17,12 +17,12 @@ DATATYPES = {
     "PRCP": "Total percipitation amount",
     "WT18": "Flag for snow and ice",
     "WT17": "Flag for freezing rain",
-    "SNOW": "Snowfall measured in inches",
-    "SNWD": "Snow depth on ground in inches",
     "RHMN": "Minimum relative humidity",
     "RHMX": "maximum relative humidity",
-    "AWND" : "Average wind speed",
-    "WDF5": "5 second fastest wind gust"
+    "AWND": "Average wind speed",
+    "WDF5": "5 second fastest wind gust",
+    "SNOW": "Snowfall measured in inches",
+    "SNWD": "Snow depth on ground in inches"
 }
 
 def getStations(token: str, counties: list[str]) -> list[dict]:
@@ -120,13 +120,13 @@ def createDataFrame(station: dict, records: list[dict]):
             "TMax":day.get('TMAX'),
             "Percipitation":day.get("PRCP"),
             "Snow/Ice":day.get("WT18"),
-            "Freezing Rain":day.get("WT17"),
+            "FreezeRain":day.get("WT17"),
             "HumidMin":day.get("RHMN"),
             "HumidMax":day.get("RHMX"),
-            "WindAvg":day.get("")
+            "WindAvg":day.get("AWND"),
+            "5SecGust":day.get("WDF5"),
             "Snow":day.get("SNOW"),
-            "Snow Depth":day.get("SNWD"),
-            "Cloudiness Percent":day.get("ACMC")
+            "SnowDepth":day.get("SNWD")
         })
 
     stationSnowData = pd.DataFrame(allStationData)
@@ -156,7 +156,6 @@ def main():
     )
     args = parser.parse_args()
 
-
     print(f"\nNOAA — Snow Data")
     print(f"Date range : {args.start}  →  {args.end}")
 
@@ -166,10 +165,17 @@ def main():
         print("No stations found. Check your API token or date range.")
         return
     print(f"\nFound {len(stations)} station(s). Fetching snow data.\n")
-
-    #Check for snow data in all identified counties and define the final snow data frame
+    
+    #Define selection logic from the stations found
+    for i in range(1,len(stations)+1):
+        index = i-1
+        print(f"{i}. {stations[index]['name']}\n")
+    stationSelectionIndex = input("\nWhich station would you like to access snow data from?")
+    stationIndex = stationSelectionIndex-1
+    stations = [stations[stationIndex]]
+        
+    #All station data is filled with only the data of a single station, future iterations of this program will include a multi station select, so the array has not been deleted
     allStationData = []
-
     for i, station in enumerate(stations, 1):
         print(f"[{i}/{len(stations)}] {station['name']} ({station['id']})")
         try:
@@ -180,8 +186,7 @@ def main():
         except requests.HTTPError as e:
             print(f"HTTP error for {station['id']}: {e}")
         sleep(0.25)
-
-    #All data collected 
+    #All data collected, this is redundant but will stay for future multi station alterations 
     if(allStationData is not None):
         snowDataFrame = pd.concat(allStationData, ignore_index=True)
    

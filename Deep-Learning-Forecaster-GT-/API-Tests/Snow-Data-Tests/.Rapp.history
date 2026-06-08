@@ -1,0 +1,277 @@
+flights<-arrange(flights, dep_time)
+flights
+flights<-arrange(flights, year, month, day, dep_time)
+distanceData<- flights %>%
+group_by(tailnum) %>%
+summarise(meanDist=mean(distance), numFlights = n())
+distanceData <- arrange(distanceData, desc(meanDist))
+distanceData
+ggplot(data=distanceData, mapping=aes(x=meanDist, y=numFlights))+
+geom_point(alpha=1/10)+
+geom_smooth(se=FALSE)
+flights
+carrierData <- flights %>%
+group_by(carrier) %>%
+filter(n()>100)%>%
+summarise(avgDistance = mean(distance))
+carrierData
+ggplot(data=carrierData, mapping=aes(x=carrier, y=avgDistance))+
+geom_bar()
+ggplot(data=carrierData, mapping=aes(x=carrier, y=avgDistance))+#
+ geom_bar(stat="identity")
+ggplot(data=carrierData, mapping=aes(x=carrier, y=avgDistance, color=carrier))+#
+  geom_bar(stat="identity")
+carrierData <- arrange(carrierData, avgDistance)
+carrierData
+ggplot(data=carrierData, mapping=aes(x=carrier, y=avgDistance, fill=carrier))+#
+ geom_bar(stat="identity")
+carrierData<- mutate(carrierData, carrier=fct_inorder(carrier))
+ggplot(data=carrierData, mapping=aes(x=carrier, y=avgDistance, fill=carrier))+
+geom_bar(stat="identity")
+carrierData
+library(tidyverse)
+library(dplyr)
+library(nycflights13)
+flights
+flightTime <- flights %>%
+transmute(occured = !is.na(dep_time), time = dep_time) %>%
+filter(dep_time>-1)
+flightTimes <- flights %>%
+transmute(occured = !is.na(dep_time), time=dep_time)
+flightTimes
+ggplot(data=flightTimes, mapping = aes(x=time, color = occured))+
+geom_freqpoly(binwidth=1)
+flightsJan <- filter(flights, month==1)
+flightsJan
+flightTime <- flightsJan %>%
+transmute(cancelled = is.na(dep_time), time = dep_time)%>%
+filter(time>0)
+flightTime
+ggplot(data=flightTime, mapping=aes(x=time))+
+geom_freqpoly(mapping=aes(colour=cancelled), binwidth=1/4)
+nycflights13::flights %>% #
+  mutate(#
+    cancelled = is.na(dep_time),#
+    sched_hour = sched_dep_time %/% 100,#
+    sched_min = sched_dep_time %% 100,#
+    sched_dep_time = sched_hour + sched_min / 60#
+  ) %>% #
+  ggplot(mapping = aes(sched_dep_time)) + #
+    geom_freqpoly(mapping = aes(colour = cancelled), binwidth = 1/4)
+ggplot(data=flightTime, mapping=aes(time))+
+geom_freqpoly(mapping=aes(color=cancelled), binwidth=1/4)
+library(tidyverse)
+library(dplyr)
+mpg
+ggplot(data=mpg, mapping=aes(x=class, y=hwy))+
+geom_hist()
+ggplot(data=mpg, mapping=aes(x=class, y=hwy))+
+geom_boxplot()
+unique(mpg$year)
+cars2008 <- filter(mpg, year==2008)
+cars2008
+byManufacturer <- cars2008 %>%
+group_by(manufacturer)%>%
+summarise(meanDispl = mean(displ), meanHwy = mean(hwy))
+byManufacturer
+ggplot(data=byManufacturer, mapping=aes(x=meanDispl, y=meanHwy))+
+geom_point(aes(color=manufacturer))+
+geom_smooth(se=FALSE)
+ggplot(data=mpg, mapping=aes(x=manufacturer, y=hwy))+
+geom_lv()
+ggplot(data=mpg, mapping=aes(x=manufacturer, y=hwy))+
+geom_boxplot()
+ggplot(data=mpg, mapping=aes(x=reorder(manufacturer, hwy, FUN=median), y=hwy))+
+geom_boxplot()
+diamonds
+ggplot(data=diamonds)+
+geom_point(mapping=aes(c=carat, y=price))
+ggplot(data=diamonds)+#
+ geom_point(mapping=aes(x=carat, y=price))
+diamonds %>%
+count(color, clarity) %>%
+ggplot(mapping=aes(x=color,y=clarity))+
+geom_tile(aes(fill=n))
+faithful
+ggplot(data=faithful, mapping=aes(x=waiting, y=eruptions))+
+geom_point()
+diamonds
+byCut <- diamonds %>%
+group_by(cut) %>%
+summarise(mColor = mode(color),mClarity = mode(clarity), mDepth = mean(depth), mPrice = mean(price))
+byCut
+ggplot(data=byCut, mapping=aes(x=reorder(cut, mPrice), y=mPrice))+
+geom_bar()
+ggplot(data=byCut, mapping=aes(x=cut, y=mPrice))+
+geom_bar()
+ggplot(data=byCut, mapping=aes(x=cut, y=mPrice))+
+geom_bar(stat="identity")
+ggplot(data=byCut, mapping=aes(x=cut, y=mPrice, fill=cut))+
+geom_bar(stat="identity")
+ggplot(data=byCut, mapping=aes(x=cut, y=mPrice, fill=cut))+#
+ geom_bar(stat="identity")+
+labs(x="Cut", y="Mean Price")
+ggplot(data=byCut, mapping=aes(x=reorder(cut, mPrice, FUN=mean), y=mPrice, fill=cut))+#
+  geom_bar(stat="identity")+#
+ labs(x="Cut", y="Mean Price")
+diamonds
+clarity <- diamonds %>%
+group_by(clarity) %>% s
+clarity<-diamonds %>%
+group_by(clarity)%>%
+summarise(mDepth = mean(depth), mPrice = mean(price))
+clarity
+ggplot(data=clarity, mapping = aes(x=reorder(clarity, mPrice, FUN=mean), y=mPrice))+
+geom_bar(stat="identity")
+ggplot(data=clarity, mapping=aes(x=reorder(clarity, mPrice, FUN=mean), y=mPrice, fill=clarity))+
+geom_bar(stat="identity")
+faithful
+ggplot(data=faithful, mapping=aes(x=eruptions))+
+geom_freqpoly(binwidth=0.25)
+?faithful
+library(modelr)
+mod<-lm(log(price)~log(carat), data=diamonds)
+diamodns2<-diamonds %>%
+add_residuals(mod) %>%
+mutate(resid=exp(resid))
+ggplot(data=diamonds2)+
+geom_point(mapping=aes(x-carat, y=resid))
+ggplot(data=diamodns2)+
+geom_point(mapping=aes(x=carat, y=resid))
+ggplot(data=diamonds)+
+geom_point(mapping=aes(x=carat, y=resid))
+ggplot(data=diamonds, mapping=aes(x=carat))+
+geom_freqpoly(binwidth=0.25)
+diamonds
+diamondsCC <- diamonds %>%
+group_by(color, clarity) %>%
+summarise(mDepth = mean(depth), mPrice = mean(price))
+diamondsCC
+ggplot(data=diamondsCC, mapping=aes(x=color, y=clarity))+
+geom_tile(aes(fill=mDepth))
+ggplot(data=diamondsCC, mapping=aes(x=color, y=clarity))+
+geom_tile(aes(fill=mPrice))
+ggplot(data=diamondsCC, mapping=aes(x=reorder(color, mPrice, FUN=mean), y=clarity))+
+geom_tile(aes(fill=mPrice))
+diamondsCC<-arrange(diamondsCC, mPrice)
+diamondsCC
+ggplot(data=diamonds)+
+geom_hex(mapping=aes(x=carat, y=price))
+library(tidyverse)
+library(dplyr)
+library(nycflights13)
+mpg
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy))+
+geom_point(aes(color=manufacturer))
+flights
+ggplot(data=flights, mapping=aes(x=distance, y=air_time))+
+geom_point(aes(color=carrier))
+byCarrier <- flights %>%
+group_by(carrier)
+byCarrierAvg<-byCarrier%>%
+summarise(mDist = mean(distance), mTime = mean(air_time))
+ggplot(data=byCarrier, mapping=aes(x=distance, y=air_time, color = carrier))+
+geom_smooth(se=FALSE)
+byCarrier <- filter(byCarrier, !is.na(dep_delay), !is.na(arr_delay))
+ggplot(data=byCarrier, mapping=aes(x=distance, y=air_time))+
+geom_smooth(aes(color=carrier), se=FALSE)
+ggplot(data=byCarrier, mapping=aes(x=distance, y=air_time))+#
+ geom_smooth(aes(color=carrier), se=FALSE)
+getwd()
+ggplot(diamonds, aes(carat, price))+
+geom_hex()
+ggsave("diamondsTest.pdf")
+library(tidyverse)
+library(dplyr)
+diamonds
+ggplot(data=diamonds, mapping=aes(x=cut, y=price))+
+geom_boxplot()
+ggplot(data=diamonds, mapping=aes(x=reorder(cut, price, FUN=media), y=price))+
+geom_boxplot()
+ggplot(data=diamonds, mapping=aes(x=reorder(cut, price, FUN=median), y=price))+#
+ geom_boxplot()
+library(tidyverse)
+library(dplyr)
+morrisData <- read.csv(/Users/lukeocallaghan/Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Inital-NOAA-API-Tests/TestingAPITemperature2.csv)
+morrisData <- read.csv("/Users/lukeocallaghan/Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Inital-NOAA-API-Tests/TestingAPITemperature2.csv")
+morrisData
+boontonData <- morrisData %>% filter(Station = "BOONTON 1 SE, NJ US")
+boontonData <- morrisData %>% filter(Station == "BOONTON 1 SE, NJ US")
+boontonData
+ggplot(data = boontonData, mapping = aes(x=TMin))+
+geom_freqpoly()
+ggplot(data = boontonData, mapping = aes(x=TMin))+ geom_freqpoly(bins=100)
+ggplot(data=morrisData, mapping=aes(x=TMax, color = Station))+
+geom_freqpoly()
+ggplot(data=morrisData, mapping=aes(x=TMin, y=TMax, color = Station))+
+geom_point()
+ggplot(data=morrisData, mapping=aes(x=TMin, y=TMax, color=Date))+
+geom_point()
+library(tidyverse)
+library(dplyr)
+clackamasData <- read.csv("Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Inital-NOAA-API-Tests/TestingAPITemperatureHood.csv")
+clackamasData
+byElevation <- clackamasData %>% group_by(Elevation)
+byElevation <- byElevation %>%
+summarise(avgMinTemp = mean(TMin), avgMaxTemp = mean(TMax))
+byElevation
+ggplot(data=byElevation, mapping=aes(x=Elevation))+
+geom_line(aes(y=avgMinTemp))+
+geom_line(aes(y=avgMaxTemp))
+library(tidyverse)
+library(dplyr)
+rutlandData <- read.csv("Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Snow-Data/snowData(50021)(2025-12-01-2026-03-01).csv")
+head(5, rutlandData)
+head(rutlandData, 5)
+rutlandStationData <- rutlandData %>% filter(Station == "RUTLAND, VT US")
+len(rutlandStationData)
+length(rutlandStationData)
+rutlandStationData
+ggplot(data=rutlandStationData, mapping=aes(x=Date))+
+geom_line(mapping=aes(y=Snow))+
+geom_line(mapping=aes(y=Snow.Depth))
+rutlandStationData <- rutlandStationData %>% filter(!is.na(Snow) | !is.na(Snow.Depth))
+rutlandStationData
+pwd
+wd
+get(wd)
+getwd()
+setwd("/Users/lukeocallaghan/Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-#
+/Snow-Data")
+setwd(/Users/lukeocallaghan/Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Snow-Data)
+setwd("/Users/lukeocallaghan/Desktop/Deep-Learning-Forecaster/Deep-Learning-Forecaster-GT-/Snow-Data")
+getwd()
+head(rutlandStationData, 5)
+class(rutlandStationData$Date)
+rutlandStationData <- rutlandStationData %>%
+mutate(plottingOrder = row_number())
+head(rutlandStationData, 5)
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder))+
+geom_line(aes(y=Snow, color="blue"))+
+geom_line(aes(y=Snow.Depth, color="red"))
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder, color=ColumnType))+#
+geom_line(aes(y=Snow))#
++ geom_line(aes(y=Snow.Depth))
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder, color=ColumnType))+
+geom_line(aes(y=Snow))+
+geom_line(aes(y=Snow.Depth))
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder))+
+geom_line(aes(y=Snow))+
+geom_line(aes(y=Snow.Depth))
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder))+
+geom_line(aes(y=Snow, color="Snowfall"))+
+geom_line(aes(y=Snow.Depth, color="Snow Depth"))+
+labs(title="Snowfall vs. Snow Depth in Rutland", x="Time" y="Amount", color="Legend")
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder)) +#
+  geom_line(aes(y=Snow, color="Snowfall")) +#
+  geom_line(aes(y=Snow.Depth, color="Snow Depth")) +#
+  scale_color_manual(values=c("Snowfall"="blue", "Snow Depth"="red")) +#
+  labs(color="Legend")
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder)) +#
+  geom_line(aes(y=Snow, color="Snowfall")) +#
+  geom_line(aes(y=Snow.Depth, color="Snow Depth")) +#
+  labs(color="Legend")
+ggplot(data=rutlandStationData, mapping=aes(x=plottingOrder))+
+geom_line(aes(y=Snow, color="Snowfall"))+
+geom_line(aes(y=Snow.Depth, color="Snow Depth"))+
+labs(title="Snowfall vs. Snow Depth in Rutland", x="Time", y="Amount", color="Legend")

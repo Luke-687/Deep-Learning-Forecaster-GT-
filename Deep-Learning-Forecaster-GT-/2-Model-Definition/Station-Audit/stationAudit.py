@@ -8,7 +8,7 @@ from time import sleep
 BASE_URL   = "https://www.ncei.noaa.gov/cdo-web/api/v2"
 DATASET_ID = "GHCND"
 
-MIN_ELEVATION_FT = 2000
+MIN_ELEVATION_M = 1000
 
 # Snow-relevant datatypes and their weights in the composite score.
 # Higher weight = more important for snow prediction.
@@ -182,7 +182,7 @@ def main():
 
     print(f"Station Audit — NOAA GHCND")
     print(f"Sample window : {args.sample_start} → {args.sample_end} ({sample_days} days)")
-    print(f"Min elevation : {MIN_ELEVATION_FT} ft")
+    print(f"Min elevation : {MIN_ELEVATION_M} m")
     print(f"States        : {len(US_STATES)}")
     print(f"CSV           : {args.csv}  ({len(already_scored)} stations already saved)\n")
 
@@ -206,7 +206,7 @@ def main():
         for station in stations:
             elev = station.get("elevation")
 
-            if elev is None or elev < MIN_ELEVATION_FT:
+            if elev is None or elev < MIN_ELEVATION_M:
                 total_skipped_elevation += 1
                 continue
 

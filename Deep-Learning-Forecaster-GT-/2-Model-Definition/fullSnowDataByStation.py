@@ -20,42 +20,31 @@ DATATYPES = {
     "RHMN": "Minimum relative humidity",
     "RHMX": "maximum relative humidity",
     "AWND": "Average wind speed",
-    "WDF5": "5 second fastest wind gust",
+    "WSF5": "5 second fastest wind gust",
     "SNOW": "Snowfall measured in inches",
     "SNWD": "Snow depth on ground in inches"
 }
 
-def getStations(token: str, counties: list[str]) -> list[dict]:
+def getStationById(token: str, station_id: str) -> dict | None:
     headers = {"token": token}
-    stations = []
-    for county in counties:
-        offset = 1
-        while True:
-            params = {
-                "datasetid":  DATASET_ID,
-                "locationid": county,
-                "datatypeid": "TMAX",       # only stations that have temp data
-                "limit":      1000,
-                "offset":     offset,
-            }
-            resp = requests.get(f"{BASE_URL}/stations", headers=headers, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+    resp = requests.get(f"{BASE_URL}/stations/{station_id}", headers=headers)
+    resp.raise_for_status()
+    data = resp.json()
+    return data if data.get("id") else None
 
-            results = data.get("results", [])
-            if not results:
-                break
-
-            stations.extend(results)
-            total = data.get("metadata", {}).get("resultset", {}).get("count", len(stations))
-            print(f"  Retrieved {len(stations)} / {total} stations")
-
-            if len(stations) >= total:
-                break
-            offset += len(results)
-            sleep(5)  #Delay before next API request, mindful of daily limits
-
-    return stations
+def getStationsByName(token: str, name_query: str) -> list[dict]:
+    headers = {"token": token}
+    params = {
+        "datasetid": DATASET_ID,
+        "limit":     1000,
+        "offset":    1,
+    }
+    resp = requests.get(f"{BASE_URL}/stations", headers=headers, params=params)
+    resp.raise_for_status()
+    data = resp.json()
+    results = data.get("results", [])
+    query = name_query.lower()
+    return [s for s in results if query in s["name"].lower()]
 
 def getStationSnowData(token: str, station_id: str, start: str, end: str) -> list[dict]:
     headers = {"token": token}
@@ -124,7 +113,7 @@ def createDataFrame(station: dict, records: list[dict]):
             "HumidMin":day.get("RHMN"),
             "HumidMax":day.get("RHMX"),
             "WindAvg":day.get("AWND"),
-            "5SecGust":day.get("WDF5"),
+            "5SecGust":day.get("WSF5"),
             "Snow":day.get("SNOW"),
             "SnowDepth":day.get("SNWD")
         })
@@ -132,15 +121,14 @@ def createDataFrame(station: dict, records: list[dict]):
     stationSnowData = pd.DataFrame(allStationData)
     return stationSnowData
 
-#Main function with all parser variables for input of token and county codes
 def main():
 
     parser = argparse.ArgumentParser(
-        description="Fetch NOAA temperature data for all weather stations within counties."
+        description="Fetch NOAA snow data for a single weather station by ID or name."
     )
     parser.add_argument(
         "--token", required=True,
-        help="Your NOAA CDO API token (get one free at https://www.ncdc.noaa.gov/cdo-web/token)"
+        help="Your NOAA CDO API token"
     )
     parser.add_argument(
         "--start", default=str(date.today() - timedelta(days=100)),
@@ -150,50 +138,60 @@ def main():
         "--end", default=str(date.today() - timedelta(days=1)),
         help="End date YYYY-MM-DD (default: yesterday)"
     )
-    parser.add_argument(
-    "--counties", nargs="+", default=["FIPS:41005"], #Default set to Clackamas, OR
-    help="One or more FIPS county codes"
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--id",
+        help="Exact NOAA station ID (e.g. GHCND:USC00358534)"
+    )
+    group.add_argument(
+        "--name",
+        help="Case-insensitive substring of the station name (e.g. 'TIMBERLINE LODGE')"
     )
     args = parser.parse_args()
 
     print(f"\nNOAA — Snow Data")
     print(f"Date range : {args.start}  →  {args.end}")
 
-    #Access and save all stations within inputted county codes
-    stations = getStations(args.token, args.counties)
-    if not stations:
-        print("No stations found. Check your API token or date range.")
-        return
-    print(f"\nFound {len(stations)} station(s). Fetching snow data.\n")
-    
-    #Define selection logic from the stations found
-    for i in range(1,len(stations)+1):
-        index = i-1
-        print(f"{i}. {stations[index]['name']}\n")
-    stationSelectionIndex = input("\nWhich station would you like to access snow data from?")
-    stationIndex = stationSelectionIndex-1
-    stations = [stations[stationIndex]]
+    if args.id:
+        print(f"Looking up station ID: {args.id}")
+        station = getStationById(args.token, args.id)
+        if not station:
+            print(f"No station found with ID '{args.id}'. Exiting.")
+            return
+        stations = [station]
+        print(f"Found: {station['name']} ({station['id']})\n")
+    else:
+        print(f"Searching for stations matching: '{args.name}'")
+        matches = getStationsByName(args.token, args.name)
+        if not matches:
+            print(f"No station name contains '{args.name}'. Exiting.")
+            return
+        if len(matches) > 1:
+            print(f"Multiple matches for '{args.name}':")
+            for s in matches:
+                print(f"  {s['name']} ({s['id']})")
+            print("Using the first match.")
+        stations = [matches[0]]
+        print(f"Selected: {stations[0]['name']} ({stations[0]['id']})\n")
         
     #All station data is filled with only the data of a single station, future iterations of this program will include a multi station select, so the array has not been deleted
-    allStationData = []
     for i, station in enumerate(stations, 1):
         print(f"[{i}/{len(stations)}] {station['name']} ({station['id']})")
         try:
             records = getStationSnowData(args.token, station["id"], args.start, args.end)
             stationDataFrame = createDataFrame(station, records)
-            if(stationDataFrame is not None):
-                allStationData.append(stationDataFrame)
         except requests.HTTPError as e:
             print(f"HTTP error for {station['id']}: {e}")
         sleep(0.25)
     #All data collected, this is redundant but will stay for future multi station alterations 
-    if(allStationData is not None):
-        snowDataFrame = pd.concat(allStationData, ignore_index=True)
+    if(stationDataFrame):
+        snowDataFrame = pd.concat(stationDataFrame, ignore_index=True)
    
     print(f"\n\nDone. Processed {len(stations)} station(s). CSV created.")
     
-    countiesString = "-".join(args.counties).replace("FIPS:","")
-    snowDataFrame.to_csv(f'snowData({countiesString})({args.start}-{args.end}).csv', index=False)
+    stationName = stations[0]['name'].replace(' ', '-')
+    snowDataFrame.to_csv(f'snowData({stationName})({args.start}-{args.end}).csv', index=False)
 
 if __name__ == "__main__":
     main()

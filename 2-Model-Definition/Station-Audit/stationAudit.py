@@ -158,7 +158,6 @@ def scoreStation(station: dict, records: list[dict], sample_days: int) -> dict:
         "composite_score": composite,
     }
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="Audit NOAA GHCND stations nationwide for snow-prediction data quality."

@@ -18,12 +18,12 @@ def main():
     allTrainingWeatherData = np.array([], dtype=object)
     for i in range(yearEnd-yearStart):
         year = yearStart+i
-        tempWeatherArray = np.load(f"../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
+        tempWeatherArray = np.load(f"../../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
         allTrainingWeatherData = np.concatenate((allTrainingWeatherData, tempWeatherArray))
     allTestingWeatherData = np.array([], dtype=object)
     for j in range(yearEndTest-yearStartTest):
         year = yearStartTest+j
-        tempWeatherArray = np.load(f"../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
+        tempWeatherArray = np.load(f"../../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
         allTestingWeatherData = np.concatenate((allTestingWeatherData, tempWeatherArray))
 
     return allTrainingWeatherData, allTestingWeatherData, yearStart, yearEnd, yearStartTest, yearEndTest

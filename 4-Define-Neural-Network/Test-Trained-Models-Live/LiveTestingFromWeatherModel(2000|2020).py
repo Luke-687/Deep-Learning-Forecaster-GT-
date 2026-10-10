@@ -15,8 +15,10 @@ from retry_requests import retry
 
 #Resolve paths off this file so the script runs from any working directory
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(THIS_DIR, 'Save-Trained-Models')
-NETWORK_DEFINITION = os.path.join(THIS_DIR, 'NeuralNetwork(2000|2020).py')
+#The model and training folders are siblings of this script's folder, not children of it
+NETWORK_ROOT = os.path.dirname(THIS_DIR)
+MODEL_DIR = os.path.join(NETWORK_ROOT, 'Save-Trained-Models')
+NETWORK_DEFINITION = os.path.join(NETWORK_ROOT, 'Train-Models', 'NeuralNetwork(2000|2020).py')
 
 washingtonLat, washingtonLong = 44.2705, -71.30325
 
@@ -96,9 +98,6 @@ def pullLiveWeather(openmeteo, forecastDays):
 # **** UNIT CONVERSION TO TRAINING FORM ****
 
 #Open-Meteo does not expose specific humidity directly, so derive it at 700hPa from dew point.
-#Air is saturated at its own dew point, so the Magnus-Tetens formula evaluated at Td gives the
-#actual (not saturation) vapor pressure; the standard specific humidity formula follows from that
-#(both vapor pressures in hPa, matching the 700hPa level, output in kg/kg)
 def specificHumidity700(dewPoint700Celsius):
     actual_vapor_pressure_700hPa = 6.112 * np.exp(17.62 * dewPoint700Celsius / (243.12 + dewPoint700Celsius))
     return 0.622 * actual_vapor_pressure_700hPa / (700 - 0.378 * actual_vapor_pressure_700hPa)

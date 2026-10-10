@@ -4,6 +4,13 @@ import numpy as np
 import os
 import argparse
 
+#Anchor every path to this file so the script works from any working directory and survives folder moves
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+NETWORK_ROOT = os.path.dirname(THIS_DIR)
+PROJECT_DIR = os.path.dirname(NETWORK_ROOT)
+YEARLY_WEATHER_DIR = os.path.join(PROJECT_DIR, '3-Define-Data-Pipeline', 'Yearly-Weather-Storage')
+COMBINED_DATA_DIR = os.path.join(NETWORK_ROOT, 'Training-Testing-Data')
+
 def main():
     inputs = buildingParser().parse_args()
 
@@ -18,12 +25,12 @@ def main():
     allTrainingWeatherData = np.array([], dtype=object)
     for i in range(yearEnd-yearStart):
         year = yearStart+i
-        tempWeatherArray = np.load(f"../../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
+        tempWeatherArray = np.load(os.path.join(YEARLY_WEATHER_DIR, f'mtWashingtonAllWeather{year}.npy'), allow_pickle=True)
         allTrainingWeatherData = np.concatenate((allTrainingWeatherData, tempWeatherArray))
     allTestingWeatherData = np.array([], dtype=object)
     for j in range(yearEndTest-yearStartTest):
         year = yearStartTest+j
-        tempWeatherArray = np.load(f"../../3-Define-Data-Pipeline/Yearly-Weather-Storage/mtWashingtonAllWeather{year}.npy", allow_pickle=True)
+        tempWeatherArray = np.load(os.path.join(YEARLY_WEATHER_DIR, f'mtWashingtonAllWeather{year}.npy'), allow_pickle=True)
         allTestingWeatherData = np.concatenate((allTestingWeatherData, tempWeatherArray))
 
     return allTrainingWeatherData, allTestingWeatherData, yearStart, yearEnd, yearStartTest, yearEndTest
@@ -39,7 +46,7 @@ def buildingParser():
 #All weather from 20 years of API calls organized now into a single array, store for training
 if __name__ == '__main__':
     trainingData, testingData, trainYearS, trainYearE, testYearS, testYearE = main()
-    AllTrainingTestingData = 'Training-Testing-Data'
+    AllTrainingTestingData = COMBINED_DATA_DIR
     os.makedirs(AllTrainingTestingData, exist_ok=True)
     np.save(os.path.join(AllTrainingTestingData, f'trainingWeather({trainYearS}|{trainYearE}).npy'), trainingData, allow_pickle=True)
     np.save(os.path.join(AllTrainingTestingData, f'testingWeather({testYearS}|{testYearE}).npy'), testingData, allow_pickle=True)

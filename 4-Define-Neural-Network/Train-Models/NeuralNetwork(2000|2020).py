@@ -11,8 +11,10 @@ import argparse
 
 #Resolve data off this file so the script runs from any working directory
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(THIS_DIR, 'Training-Testing-Data')
-MODEL_DIR = os.path.join(THIS_DIR, 'Save-Trained-Models')
+#The data and model folders are siblings of this script's folder, not children of it
+NETWORK_ROOT = os.path.dirname(THIS_DIR)
+DATA_DIR = os.path.join(NETWORK_ROOT, 'Training-Testing-Data')
+MODEL_DIR = os.path.join(NETWORK_ROOT, 'Save-Trained-Models')
 
 #Column layout of one daily sample as OrganizeAllData.py stores it
 #[0] date | [1:57] 56 CDS metrics (4 timestamps x 14 variables) | [57] TMIN | [58] TMAX | [59] SNOW

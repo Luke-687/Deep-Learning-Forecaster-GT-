@@ -22,6 +22,21 @@ NETWORK_DEFINITION = os.path.join(NETWORK_ROOT, 'Train-Models', 'NeuralNetwork(2
 
 washingtonLat, washingtonLong = 44.2705, -71.30325
 
+#The rolling prediction log lives beside this script, not in whatever folder it was launched from
+ROLLING_PREDICTION_FILE = os.path.join(THIS_DIR, 'rollingSnowPredictions(2000|2020).npy')
+#Each stored prediction is [date, expected snow, amount if snowing, chance of snow]
+VALUES_PER_PREDICTION = 4
+
+#Earlier runs saved with np.append and no axis, which flattened the log to one long 1D list.
+#Reshape any such file back into rows so the date lookups below work on old and new logs alike
+def loadRollingPredictions(predictionPath):
+    storedPredictions = np.load(predictionPath, allow_pickle=True)
+    if storedPredictions.ndim == 1:
+        if len(storedPredictions) % VALUES_PER_PREDICTION != 0:
+            raise ValueError(f'Rolling log holds {len(storedPredictions)} values, not a multiple of {VALUES_PER_PREDICTION}')
+        storedPredictions = storedPredictions.reshape(-1, VALUES_PER_PREDICTION)
+    return storedPredictions
+
 #ERA5 samples the day at these four UTC hours, the live vector has to be built from the same four
 TRAINING_HOURS_UTC = [0, 6, 12, 18]
 #Standard gravity, converts Open-Meteo geopotential height in m to the ERA5 geopotential in m2/s2
@@ -176,37 +191,43 @@ def checkAgainstTrainingRange(liveVectors, metricMeans, metricDeviations, featur
 # **** MAIN ****
 
 def main():
-    inputs = buildingParser().parse_args()
 
+    inputs = buildingParser().parse_args()
     definition = loadNetworkDefinition()
     network, metricMeans, metricDeviations = loadTrainedModel(definition, inputs.train_label)
 
+    #Build out and run full Open Meteo call
     openmeteo = buildOpenMeteoClient()
     hourlyTimes, hourlyValues = pullLiveWeather(openmeteo, inputs.forecast_days)
-
     liveVectors, coveredDates = buildDailyVectors(hourlyTimes, hourlyValues)
     if len(liveVectors) == 0:
         raise RuntimeError('Open-Meteo returned no day with all four required UTC hours')
     print(f'Built {len(liveVectors)} daily input vector(s) of {liveVectors.shape[1]} metrics')
-
     checkAgainstTrainingRange(liveVectors, metricMeans, metricDeviations,
                               definition.featureNames(), inputs.warn_deviations)
 
     #Normalize with the statistics saved alongside the weights, never recomputed from live data
     normalizedVectors = torch.tensor(definition.applyNormalizer(liveVectors, metricMeans, metricDeviations))
+    #Make actual snow predictions
     expectedSnow, snowChance, amountIfSnowing = definition.predictSnow(network, normalizedVectors)
 
+    #Fromat printed results
     print('\n**** SNOW FORECAST, MT WASHINGTON SUMMIT ****')
     print(f'{"date":<12} {"expected":>10} {"if snowing":>11} {"confidence":>11}')
     for i, forecastDate in enumerate(coveredDates):
         print(f'{str(forecastDate):<12} {expectedSnow[i]:7.1f} mm {amountIfSnowing[i]:8.1f} mm {snowChance[i]:10.0%}')
 
-    #The headline answer for today
+    #The headline answer for today, shown at the bottom of the print
     todaysSnow = expectedSnow[0]
     todaysChance = snowChance[0]
     print(f'\nTODAY ({coveredDates[0]}): {todaysSnow:.1f} mm of snow expected, {todaysChance:.0%} chance of any snowfall')
 
-    return expectedSnow, snowChance, coveredDates
+    #Create and format an array with all snow data from the prediction window
+    allSnowPredictions = []
+    for i, forecastDate in enumerate(coveredDates):
+        allSnowPredictions.append([forecastDate, expectedSnow[i], amountIfSnowing[i], snowChance[i]])
+
+    return allSnowPredictions
 
 def buildingParser():
     parser = argparse.ArgumentParser(description='Runs the trained snow network against live Open-Meteo column data')
@@ -216,4 +237,43 @@ def buildingParser():
     return parser
 
 if __name__ == '__main__':
-    main()
+   
+    windowPredictions = main() #Predicted snowfall within the prompted window is recorded and saved to the variable here from the main return statement
+   
+    #Save predictions into rolling numpy array, saved in form [date, expected snow, amount if snowing, chance of snow]
+    checkForFile = ROLLING_PREDICTION_FILE
+
+    if os.path.isfile(checkForFile):
+        currentPredictions = loadRollingPredictions(checkForFile)
+        #Create a list of all dates that have already been saved
+        allPredictedDays = []
+        windowPredictedDays = []
+        for i in range(len(currentPredictions)):
+            allPredictedDays.append(currentPredictions[i][0])
+        for i in range(len(windowPredictions)):
+            windowPredictedDays.append(windowPredictions[i][0])
+        #Check for overlapping days and save all required information to replace predictions and add new ones
+        overlappingDays = []
+        nonOverlappingDays = []
+        for windowDay in (windowPredictedDays):
+            if(windowDay in allPredictedDays):
+                overlappingDays.append([allPredictedDays.index(windowDay), windowPredictedDays.index(windowDay), windowDay])
+            else:
+                nonOverlappingDays.append([windowPredictedDays.index(windowDay), windowDay])
+        #Replace old predictions
+        for dayInfo in overlappingDays:
+            currentPredictions[dayInfo[0]] = windowPredictions[dayInfo[1]] #Put the more up to date window prediction in palce of the other prediction
+        #Add on new prediction days
+        for dayInfo in nonOverlappingDays:
+            #axis=0 appends a whole row, without it np.append flattens the log into a single 1D list
+            newPredictionRow = np.array([windowPredictions[dayInfo[0]]], dtype=object)
+            currentPredictions = np.append(currentPredictions, newPredictionRow, axis=0) #Put in new days at the end of the list
+        #Print and save final version
+        print(currentPredictions)
+        np.save(ROLLING_PREDICTION_FILE, currentPredictions, allow_pickle=True)
+    
+    else:
+        #Print and save final version
+        print(windowPredictions)
+        #Build the log as rows from the start so later appends keep their shape
+        np.save(ROLLING_PREDICTION_FILE, np.array(windowPredictions, dtype=object), allow_pickle=True)
